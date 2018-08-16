@@ -1,0 +1,27 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "DevTestLabName": {
+        "value": "cloud5mins-DevLab"
+      },
+      "StorageAccountName": {
+        "value": "c5mdevtestlab"
+      },
+      "virtualNetworksName": {
+        "value": "cloud5mins-DTLab"
+      },
+      "EmailRecipient": {
+        "value": "YOUR_EMAIL"
+      },
+      "adminPassword": {
+        "reference": {
+            "keyVault": {
+                "id": "/subscriptions/{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}/resourceGroups/cloud5mins/providers/Microsoft.KeyVault/vaults/Cloud5minsVault"
+            },
+            "secretName": "vmPassword"
+        }
+    }
+    }
+  }
+

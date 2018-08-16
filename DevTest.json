@@ -1,0 +1,228 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "DevTestLabName": {
+            "type": "string"
+        },
+        "virtualNetworksName": {
+            "type": "string"
+        },
+        "StorageAccountName": {
+            "type": "string"
+        },
+        "EmailRecipient": {
+            "type": "string"
+        },
+        "adminPassword":{
+            "type": "string"
+        }
+    },
+    "variables": {
+        "suffix": "[uniqueString(resourceGroup().id, resourceGroup().location)]",
+        "LabName": "[concat(parameters('DevTestLabName'), substring(variables('suffix'),0,5))]",
+        "StorageAccountName": "[substring(concat(toLower(parameters('StorageAccountName')), variables('suffix')),0,24)]",
+        "virtualNetworksName": "[parameters('virtualNetworksName')]",
+        "FormulaSimpleDevBoxName": "SimpleDevBox",
+        "ShutdowTime": "1900",
+        "EmailRecipient": "[parameters('EmailRecipient')]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.DevTestLab/labs",
+            "name": "[variables('LabName')]",
+            "apiVersion": "2016-05-15",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "owner": "frank"
+            },
+            "scale": null,
+            "properties": {
+                "labStorageType": "Premium",
+                "premiumDataDisks": "Disabled"
+            },
+            "resources": [
+                {
+                    "apiVersion": "2017-04-26-preview",
+                    "name": "[variables('virtualNetworksName')]",
+                    "type": "virtualnetworks",
+                    "dependsOn": [
+                        "[resourceId('microsoft.devtestlab/labs', variables('LabName'))]"
+                    ]
+                },
+                {
+                    "apiVersion": "2017-04-26-preview",
+                    "name": "LabVmsShutdown",
+                    "type": "schedules",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.DevTestLab/labs', variables('LabName'))]"
+                    ],
+                    "properties": {
+                        "status": "Enabled",
+                        "timeZoneId": "Eastern Standard Time",
+                        "dailyRecurrence": {
+                            "time": "[variables('ShutdowTime')]"
+                        },
+                        "taskType": "LabVmsShutdownTask",
+                        "notificationSettings": {
+                            "status": "Enabled",
+                            "timeInMinutes": 30
+                        }
+                    }
+                },
+                {
+                    "apiVersion": "2017-04-26-preview",
+                    "name": "AutoShutdown",
+                    "type": "notificationChannels",
+                    "properties": {
+                        "description": "This option will send notifications to the specified webhook URL before auto-shutdown of virtual machines occurs.",
+                        "events": [
+                            {
+                                "eventName": "Autoshutdown"
+                            }
+                        ],
+                        "emailRecipient": "[variables('emailRecipient')]"
+                    },
+                    "dependsOn": [
+                        "[resourceId('Microsoft.DevTestLab/labs', variables('LabName'))]"
+                    ]
+                }
+            ],
+            "dependsOn": []
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks",
+            "name": "[variables('virtualNetworksName')]",
+            "apiVersion": "2018-02-01",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "owner": "frank"
+            },
+            "scale": null,
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "10.0.0.0/20"
+                    ]
+                },
+                "dhcpOptions": {
+                    "dnsServers": []
+                },
+                "subnets": [
+                    {
+                        "name": "[concat(variables('virtualNetworksName'),'Subnet')]",
+                        "properties": {
+                            "addressPrefix": "10.0.0.0/20"
+                        }
+                    }
+                ],
+                "virtualNetworkPeerings": [],
+                "enableDdosProtection": false,
+                "enableVmProtection": false
+            },
+            "dependsOn": [
+                "[resourceId('microsoft.devtestlab/labs', variables('LabName'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "sku": {
+                "name": "Standard_LRS",
+                "tier": "Standard"
+            },
+            "kind": "Storage",
+            "name": "[variables('StorageAccountName')]",
+            "apiVersion": "2018-03-01-preview",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "owner": "frank"
+            },
+            "scale": null,
+            "properties": {
+                "networkAcls": {
+                    "bypass": "AzureServices",
+                    "virtualNetworkRules": [],
+                    "ipRules": [],
+                    "defaultAction": "Allow"
+                },
+                "supportsHttpsTrafficOnly": false,
+                "encryption": {
+                    "services": {
+                        "file": {
+                            "enabled": true
+                        },
+                        "blob": {
+                            "enabled": true
+                        }
+                    },
+                    "keySource": "Microsoft.Storage"
+                }
+            },
+            "dependsOn": []
+        },
+        {
+            "type": "Microsoft.DevTestLab/labs/formulas",
+            "name": "[concat(variables('LabName'), '/', variables('FormulaSimpleDevBoxName'))]",
+            "apiVersion": "2016-05-15",
+            "scale": null,
+            "properties": {
+                "description": "Simple Developer VM with VSCode and Git",
+                "author": "FBoucher@outlook.com",
+                "osType": "Windows",
+                "formulaContent": {
+                    "properties": {
+                        "bulkCreationvariables": {
+                            "instanceCount": 2
+                        },
+                        "size": "Standard_B2s",
+                        "userName": "frank",
+                        "password": "[parameters('adminPassword')]",
+                        "isAuthenticationWithSshKey": false,
+                        "labSubnetName": "[concat(variables('virtualNetworksName'),'Subnet')]",
+                        "labVirtualNetworkId": "[concat('/virtualnetworks/', variables('virtualNetworksName'))]",
+                        "disallowPublicIpAddress": true,
+                        "artifacts": [
+                            {
+                              "artifactId": "/artifactsources/public repo/artifacts/windows-git",
+                              "parameters": []
+                            },
+                            {
+                              "artifactId": "/artifactsources/public repo/artifacts/windows-vscode",
+                              "parameters": []
+                            }
+                        ],
+                        "galleryImageReference": {
+                            "offer": "Windows-10",
+                            "publisher": "MicrosoftWindowsDesktop",
+                            "sku": "rs4-pro",
+                            "osType": "Windows",
+                            "version": "latest"
+                        },
+                        "networkInterface": {
+                            "sharedPublicIpAddressConfiguration": {
+                              "inboundNatRules": [
+                                {
+                                  "transportProtocol": "Tcp",
+                                  "backendPort": 3389
+                                }
+                              ]
+                            }
+                        },
+                        "allowClaim": true,
+                        "storageType": "Premium"
+                    }
+                }
+            },
+            "dependsOn": [
+                "[resourceId('microsoft.devtestlab/labs', variables('LabName'))]"
+            ]
+        }
+    ],
+    "outputs": 
+        {
+        "admin-password": {
+            "type": "string",
+            "value": "[parameters('adminPassword')]"
+        }
+    }
+}
