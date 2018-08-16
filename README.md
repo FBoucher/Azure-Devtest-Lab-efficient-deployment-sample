@@ -16,12 +16,13 @@ In this post, I will show you how to deploy an Azure Devtest Lab with an Azure R
 
 - In English: https://youtu.be/aCrD4dpNgYk
 
-- En Fancais: https://youtu.be/FJOyXfbQlbI
+- En Fançais: https://youtu.be/FJOyXfbQlbI
 
 
 ## Deployment
 
     bash ./DeployDevTestLab.sh cloud5mins eastus Cloud5minsVault
+
 
 
 
